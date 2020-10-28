@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 
-packages = c('rgdal', 'sf', 'spdep', 'tmap', 'tidyverse', 'maptools', 'raster', 'spatstat','prettydoc')
+packages = c('rgdal', 'sf', 'spdep', 'tmap', 'tidyverse', 'maptools', 'raster', 'spatstat','prettydoc','spData')
 for (p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -30,6 +30,11 @@ gym <- readOGR(dsn = "data/geospatial/gymssg/gyms-sg.shp",
 
 eat <- readOGR(dsn = "data/geospatial/healthier-eateries/healthier-eateries.shp",
           layer = "healthier-eateries")
+
+places <- readOGR(dsn = "data/geospatial/Singapore-shp/shape/places.shp",
+          layer = "places")
+
+
 
 sg <- readOGR(dsn = "data/geospatial/coastal-outline", layer="CostalOutline")
 
@@ -141,19 +146,20 @@ tm_shape(kde_gymSG_bw_raster) +
 2.Healthier eateries
 ```{r}
 #filter the fastfood
-
-eat <- 
+eat_sp <- as(eat, "SpatialPoints")
+#eat <- eat_sp %>%
+#  filter(!grepl("McDonald"), Name)
 
 ```
 
-
 ```{r}
+sg_sp <- as(sg, "SpatialPolygons")
+sg_owin <- as(sg_sp, "owin")
 
 eat_sp <- as(eat, "SpatialPoints")
 eat_ppp <- as(eat_sp, "ppp")
 eat_ppp <- rjitter(eat_ppp, retry=TRUE, nsim=1, drop=TRUE)
 eatSG_ppp <- eat_ppp[sg_owin]
-
 
 ```
 
@@ -162,32 +168,196 @@ eatSG_ppp <- eat_ppp[sg_owin]
 plot(eatSG_ppp)
 
 ```
-
+Kernel Density Maps
 ```{r}
 
 eatSG_ppp.bw <- density(eatSG_ppp, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+plot(eatSG_ppp.bw)
 
 ```
 
 ```{r}
-plot(eatSG_ppp.bw)
 
+eatSG_ppp.km <- rescale(eatSG_ppp, 1000, "km")
 
 ```
 Convert KDE output into grid object
 ```{r}
 
-gridded_kde_eatSG_bw <- as.SpatialGridDataFrame.im(eatSG_ppp.bw)
+
+kde_eatSG.bw <- density(eatSG_ppp.km, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+
+kde_eatSG.ppl <- density(eatSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian")
+
+par(mfrow=c(1,2))
+plot(kde_eatSG.bw, main = "bw.diggle")
+plot(kde_eatSG.ppl, main = "bw.ppl")
 
 ```
 
 ```{r}
+par(mfrow=c(1,2))
+plot(density(eatSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian"), main="Gaussian")
+plot(density(eatSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="epanechnikov"), main="Epanechnikov")
 
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(eatSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="quartic"), main="Quartic")
+plot(density(eatSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="disc"), main="Disc")
+
+
+```
+Computing kernel density estimation by defining bandwidth manually
+
+```{r}
+
+kde_eatSG_600 <- density(eatSG_ppp.km, sigma=0.6, edge=TRUE, kernel="gaussian")
+plot(kde_eatSG_600)
+
+```
+Computing kernel density estimation by using adaptive bandwidth
+```{r}
+
+kde_eatSG_adaptive <- adaptive.density(eatSG_ppp.km, method="kernel")
+plot(kde_eatSG_adaptive)
+
+```
+
+
+
+```{r}
+par(mfrow=c(1,2))
+plot(kde_eatSG.bw, main = "Fixed bandwidth")
+plot(kde_eatSG_adaptive, main = "Adaptive bandwidth")
+
+```
+Converting KDE output into grid object.
+```{r}
+gridded_kde_eatSG_bw <- as.SpatialGridDataFrame.im(kde_eatSG.bw)
 spplot(gridded_kde_eatSG_bw)
 
 ```
+
+Converting gridded output into raster
+```{r}
+kde_eatSG_bw_raster <- raster(gridded_kde_eatSG_bw)
+projection(kde_eatSG_bw_raster) <- CRS("+init=EPSG:3414")
+
+```
+
+```{r}
+tm_shape(kde_eatSG_bw_raster) + 
+  tm_raster("v") +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+
+```
+
+
+3.places series
+
+
+```{r}
+sg_sp <- as(sg, "SpatialPolygons")
+sg_owin <- as(sg_sp, "owin")
+
+places_sp <- SpatialPoints(places)
+
+#places_sp <- as(places, "Spatialplacess")
+places_ppp <- as(places_sp, "ppp")
+places_ppp <- rjitter(places_ppp, retry=TRUE, nsim=1, drop=TRUE)
+placesSG_ppp <- places_ppp[sg_owin]
+
+```
+
+```{r}
+
+plot(placesSG_ppp)
+
+```
+Kernel Density Maps
+```{r}
+
+placesSG_ppp.bw <- density(placesSG_ppp, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+plot(placesSG_ppp.bw)
+
+```
+
+```{r}
+
+placesSG_ppp.km <- rescale(placesSG_ppp, 1000, "km")
+
+```
+Convert KDE output into grid object
 ```{r}
 
 
+kde_placesSG.bw <- density(placesSG_ppp.km, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
 
+kde_placesSG.ppl <- density(placesSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian")
+
+par(mfrow=c(1,2))
+plot(kde_placesSG.bw, main = "bw.diggle")
+plot(kde_placesSG.ppl, main = "bw.ppl")
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(placesSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian"), main="Gaussian")
+plot(density(placesSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="epanechnikov"), main="Epanechnikov")
+
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(placesSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="quartic"), main="Quartic")
+plot(density(placesSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="disc"), main="Disc")
+
+
+```
+Computing kernel density estimation by defining bandwidth manually
+
+```{r}
+
+kde_placesSG_600 <- density(placesSG_ppp.km, sigma=0.6, edge=TRUE, kernel="gaussian")
+plot(kde_placesSG_600)
+
+```
+Computing kernel density estimation by using adaptive bandwidth
+```{r}
+
+kde_placesSG_adaptive <- adaptive.density(placesSG_ppp.km, method="kernel")
+plot(kde_placesSG_adaptive)
+
+```
+```{r}
+par(mfrow=c(1,2))
+plot(kde_placesSG.bw, main = "Fixed bandwidth")
+plot(kde_placesSG_adaptive, main = "Adaptive bandwidth")
+
+```
+Converting KDE output into grid object.
+```{r}
+gridded_kde_placesSG_bw <- as.SpatialGridDataFrame.im(kde_placesSG.bw)
+spplot(gridded_kde_placesSG_bw)
+
+```
+
+Converting gridded output into raster
+```{r}
+kde_placesSG_bw_raster <- raster(gridded_kde_placesSG_bw)
+projection(kde_placesSG_bw_raster) <- CRS("+init=EPSG:3414")
+
+```
+
+```{r}
+tm_shape(kde_placesSG_bw_raster) + 
+  tm_raster("v") +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+
+```
 ```
