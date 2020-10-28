@@ -1,0 +1,193 @@
+---
+title: "Kernel"
+author: "leeSunho"
+date: "10/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+packages = c('rgdal', 'sf', 'spdep', 'tmap', 'tidyverse', 'maptools', 'raster', 'spatstat','prettydoc')
+for (p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p,character.only = T)
+}
+
+```
+
+
+```{r}
+
+
+gym <- readOGR(dsn = "data/geospatial/gymssg/gyms-sg.shp",
+          layer = "gyms-sg")
+
+eat <- readOGR(dsn = "data/geospatial/healthier-eateries/healthier-eateries.shp",
+          layer = "healthier-eateries")
+
+sg <- readOGR(dsn = "data/geospatial/coastal-outline", layer="CostalOutline")
+
+
+
+```
+1. GYM
+```{r}
+sg_sp <- as(sg, "SpatialPolygons")
+sg_owin <- as(sg_sp, "owin")
+
+gym_sp <- as(gym, "SpatialPoints")
+gym_ppp <- as(gym_sp, "ppp")
+gym_ppp <- rjitter(gym_ppp, retry=TRUE, nsim=1, drop=TRUE)
+gymSG_ppp <- gym_ppp[sg_owin]
+
+```
+
+```{r}
+
+plot(gymSG_ppp)
+
+```
+Kernel Density Maps
+```{r}
+
+gymSG_ppp.bw <- density(gymSG_ppp, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+plot(gymSG_ppp.bw)
+
+```
+
+```{r}
+
+gymSG_ppp.km <- rescale(gymSG_ppp, 1000, "km")
+
+```
+Convert KDE output into grid object
+```{r}
+
+
+kde_gymSG.bw <- density(gymSG_ppp.km, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+
+kde_gymSG.ppl <- density(gymSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian")
+
+par(mfrow=c(1,2))
+plot(kde_gymSG.bw, main = "bw.diggle")
+plot(kde_gymSG.ppl, main = "bw.ppl")
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(gymSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="gaussian"), main="Gaussian")
+plot(density(gymSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="epanechnikov"), main="Epanechnikov")
+
+
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(density(gymSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="quartic"), main="Quartic")
+plot(density(gymSG_ppp.km, sigma=bw.ppl, edge=TRUE, kernel="disc"), main="Disc")
+
+
+```
+Computing kernel density estimation by defining bandwidth manually
+
+```{r}
+
+kde_gymSG_600 <- density(gymSG_ppp.km, sigma=0.6, edge=TRUE, kernel="gaussian")
+plot(kde_gymSG_600)
+
+```
+Computing kernel density estimation by using adaptive bandwidth
+```{r}
+
+kde_gymSG_adaptive <- adaptive.density(gymSG_ppp.km, method="kernel")
+plot(kde_gymSG_adaptive)
+
+```
+```{r}
+par(mfrow=c(1,2))
+plot(kde_gymSG.bw, main = "Fixed bandwidth")
+plot(kde_gymSG_adaptive, main = "Adaptive bandwidth")
+
+```
+Converting KDE output into grid object.
+```{r}
+gridded_kde_gymSG_bw <- as.SpatialGridDataFrame.im(kde_gymSG.bw)
+spplot(gridded_kde_gymSG_bw)
+
+```
+
+Converting gridded output into raster
+```{r}
+kde_gymSG_bw_raster <- raster(gridded_kde_gymSG_bw)
+projection(kde_gymSG_bw_raster) <- CRS("+init=EPSG:3414")
+
+```
+
+```{r}
+tm_shape(kde_gymSG_bw_raster) + 
+  tm_raster("v") +
+  tm_layout(legend.position = c("right", "bottom"), frame = FALSE)
+
+```
+
+
+2.Healthier eateries
+```{r}
+#filter the fastfood
+
+eat <- 
+
+```
+
+
+```{r}
+
+eat_sp <- as(eat, "SpatialPoints")
+eat_ppp <- as(eat_sp, "ppp")
+eat_ppp <- rjitter(eat_ppp, retry=TRUE, nsim=1, drop=TRUE)
+eatSG_ppp <- eat_ppp[sg_owin]
+
+
+```
+
+```{r}
+
+plot(eatSG_ppp)
+
+```
+
+```{r}
+
+eatSG_ppp.bw <- density(eatSG_ppp, sigma=bw.diggle, edge=TRUE, kernel="gaussian")
+
+```
+
+```{r}
+plot(eatSG_ppp.bw)
+
+
+```
+Convert KDE output into grid object
+```{r}
+
+gridded_kde_eatSG_bw <- as.SpatialGridDataFrame.im(eatSG_ppp.bw)
+
+```
+
+```{r}
+
+spplot(gridded_kde_eatSG_bw)
+
+```
+```{r}
+
+
+
+```
