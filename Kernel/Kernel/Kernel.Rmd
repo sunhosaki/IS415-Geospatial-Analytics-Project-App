@@ -334,6 +334,8 @@ kde_placesSG_adaptive <- adaptive.density(placesSG_ppp.km, method="kernel")
 plot(kde_placesSG_adaptive)
 
 ```
+
+
 ```{r}
 par(mfrow=c(1,2))
 plot(kde_placesSG.bw, main = "Fixed bandwidth")
